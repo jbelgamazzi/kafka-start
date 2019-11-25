@@ -1,0 +1,63 @@
+version : '3.3'
+services:
+  # Cria um container de zookeeper
+  zookeeper:
+    image: kafka-start/zookeeper:latest
+    ports:
+     - 2181:2181
+     - 2888:2888
+     - 3888:3888
+
+  # Cria um broker de kafka
+  kafka:
+    image: kafka-start/kafka:latest
+    ports:
+     - 9092:9092
+    links:
+     - zookeeper
+    environment:
+     - ZOOKEEPER_CONNECT=zookeeper:2181
+
+  # Cria um container de mysql com estrutura ja definida
+  #
+  # Este sera nossa master e todas as alterações nas tabelas do banco
+  # desse container sera replicada para outro container de banco
+  mysql-origim:
+    image: kafka-start/use-case-mysql-customerdb:latest
+    ports:
+     - 3306:3306
+    environment:
+     - MYSQL_ROOT_PASSWORD=dev
+     - MYSQL_USER=mysqluser
+     - MYSQL_PASSWORD=mysqlpw
+
+  # Cria um container de mysql com estrutura ja definida
+  #
+  # Esta sera nossa slave
+  mysql-destiny:
+    image: kafka-start/use-case-mysql-customerdb:latest
+    ports:
+     - 3307:3306
+    environment:
+     - MYSQL_ROOT_PASSWORD=dev
+     - MYSQL_USER=mysqluser
+     - MYSQL_PASSWORD=mysqlpw
+
+  # Cria container para realizar o sink entre os bancos
+  connect:
+    image: kafka-start/connect-jdbc-sink:latest
+    build:
+      context: .
+    ports:
+     - 8083:8083
+     - 5005:5005
+    links:
+     - kafka
+     - mysql-origim
+     - mysql-destiny
+    environment:
+     - BOOTSTRAP_SERVERS=kafka:9092
+     - GROUP_ID=1
+     - CONFIG_STORAGE_TOPIC=my_connect_configs
+     - OFFSET_STORAGE_TOPIC=my_connect_offsets
+     - STATUS_STORAGE_TOPIC=my_source_connect_statuses

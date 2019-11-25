@@ -1,0 +1,74 @@
+version : '3.3'
+services:
+  # Cria um container de zookeeper
+  zookeeper:
+    image: kafka-start/zookeeper:latest
+    ports:
+     - 2181:2181
+     - 2888:2888
+     - 3888:3888
+
+  # Cria um broker de kafka
+  kafka:
+    image: kafka-start/kafka:latest
+    ports:
+     - 9092:9092
+    links:
+     - zookeeper
+    environment:
+     - ZOOKEEPER_CONNECT=zookeeper:2181
+
+  # Cria um container de mysql com estrutura ja definida
+  mysql-destiny:
+    image: kafka-start/use-case-mysql-customerdb:latest
+    ports:
+     - 3307:3306
+    environment:
+     - MYSQL_ROOT_PASSWORD=dev
+     - MYSQL_USER=mysqluser
+     - MYSQL_PASSWORD=mysqlpw
+
+  # Cria container para realizar o sink entre os bancos
+  connect:
+    image: kafka-start/connect-jdbc-sink:latest
+    build:
+      context: .
+    ports:
+     - 8083:8083
+     - 5005:5005
+    links:
+     - kafka
+     - mysql-destiny
+     - schema-registry
+    environment:
+     - BOOTSTRAP_SERVERS=kafka:9092
+     - GROUP_ID=1
+     - CONFIG_STORAGE_TOPIC=my_connect_configs
+     - OFFSET_STORAGE_TOPIC=my_connect_offsets
+     - STATUS_STORAGE_TOPIC=my_source_connect_statuses
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:5.3.1
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    depends_on:
+      - zookeeper
+      - kafka
+
+  rest-proxy:
+    image: confluentinc/cp-kafka-rest:5.3.1
+    ports:
+      - "8082:8082"
+    environment:
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082/
+      KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081/
+      KAFKA_REST_HOST_NAME: rest-proxy
+      KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+    depends_on:
+      - zookeeper
+      - kafka
+      - schema-registry

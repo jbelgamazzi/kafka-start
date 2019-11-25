@@ -1,0 +1,29 @@
+{
+    "name": "jdbc-mysql-destiny-configurationdb-sink",
+    "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "tasks.max": "1",
+        "topics": "configuration",
+        "connection.url": "jdbc:mysql://mysql-destiny:3306/configurationdb?user=mysqluser&password=mysqlpw",
+
+        "transforms": "unwrap,dat_last_modified,dat_added",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+        "transforms.unwrap.drop.tombstones": "false",
+
+        "transforms.dat_last_modified.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+        "transforms.dat_last_modified.format": "yyyy-MM-dd HH:mm:ss",
+        "transforms.dat_last_modified.target.type": "string",
+        "transforms.dat_last_modified.field":"dat_last_modified",
+
+        "transforms.dat_added.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+        "transforms.dat_added.format": "yyyy-MM-dd HH:mm:ss",
+        "transforms.dat_added.target.type": "string",
+        "transforms.dat_added.field":"dat_added",
+
+        "auto.create": "false",
+        "insert.mode": "upsert",
+        "delete.enabled": "true",
+        "pk.fields": "idt_configuration",
+        "pk.mode": "record_key"
+    }
+}
